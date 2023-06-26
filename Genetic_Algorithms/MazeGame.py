@@ -7,6 +7,8 @@ import numpy as np
 import os
 import create_maze
 import sys
+import moviepy.video.io.ImageSequenceClip
+import cv2
 
 # Most of the pygame, maze-related code comes from https://pythonspot.com/maze-in-pygame/
 
@@ -274,6 +276,7 @@ class App:
         self.moves_array = create_moves_array()
         self.player_known_walls = set()
         self.made_it_proportion = 0
+        self.screen = pygame.display.set_mode((6, 4))
 
     def on_init(self):
         pygame.init()
@@ -288,6 +291,7 @@ class App:
         self.FPSclock = pygame.time.Clock()
         #self.victory_quack = pygame.mixer.Sound("sounds/win-sound.mp3")
         self.random_quacks = os.listdir(QUACKS_FILEPATH)
+        self.img_array = []
 
     def restart(self, moves_list):
         self.turn = 1
@@ -320,8 +324,9 @@ class App:
                                  bsize=44):
                 player.made_goal = 1
                 player.speed = 0
-                print("HOORAY!!! I DUCK HAS MADE IT!! WHAT A BLOODY RIPPA!")
-                self.victory_quack.play()
+                print("HOORAY!!! A MOUSE HAS MADE IT!!")
+        
+                
 
     def on_render(self):
         self._display_surf.fill((0, 0, 0))
@@ -348,8 +353,15 @@ class App:
         self.maze.draw(self._display_surf, self._block_surf, self._goal_surf)
         pygame.display.flip()
 
+        view = pygame.surfarray.array3d(self.screen)
+        #  convert from (width, height, channel) to (height, width, channel)
+        view = view.transpose([1, 0, 2])
+
+        #  convert from rgb to bgr
+        img_bgr = cv2.cvtColor(view, cv2.COLOR_RGB2BGR)
+        self.img_array.append(img_bgr)
+
         if self.bootup:
-            sleep(3)
             self.bootup = False
 
     def on_cleanup(self):
@@ -369,6 +381,12 @@ class App:
         # plt.xlabel("Generation")
         # plt.ylabel("Fitness, Distance to Target (lower is better)")
         # plt.waitforbuttonpress()
+
+    def on_video(self):
+      fps=20
+      clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(self.img_array, fps=fps)
+      image_folder=os.path.abspath(os.getcwd())
+      clip.write_videofile(image_folder + '/my_video.mp4')
 
     def is_collision(self, x1, y1, x2, y2, bsize):
         if x1 >=x2 and x1 <= x2 + bsize:
@@ -480,7 +498,7 @@ class App:
                         worse_moves = self.moves_array[self.players[k].id, ]
                         moves_lists.append(simple_crossover(better_moves, worse_moves))
 
-                print("moves list is {} long\n".format(len(moves_lists)))
+                #print("moves list is {} long\n".format(len(moves_lists)))
 
                 moves_lists = np.array(moves_lists)
 
@@ -522,9 +540,14 @@ class App:
             self.on_render()
             self.FPSclock.tick(self.fps)
             self.turn +=1
-            
 
-        self.on_cleanup()
+            
+        try:
+          self.on_cleanup()
+        except:
+          print("Exception... moving on")
+      
+        self.on_video()
 
 class Maze:
     def __init__(self):
